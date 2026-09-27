@@ -14,7 +14,10 @@
     "mouth_o": "parts/mouth_o.png",
     "exp_smile": "parts/exp_smile.png",
     "exp_shy": "parts/exp_shy.png",
-    "exp_surprised": "parts/exp_surprised.png"
+    "exp_surprised": "parts/exp_surprised.png",
+    "eye_socket": "parts/eye_socket.png",
+    "iris": "parts/iris.png",
+    "eye_mask": "parts/eye_mask.png"
   },
   "regions": {
     "eyeL": {
@@ -52,12 +55,18 @@
   "feather": 14,
   "align": {},
   "motion": {
-    "yawPx": 60,
-    "pitchPx": 40,
-    "rollScale": 1,
-    "bodyFollow": 0.2,
+    "yawPx": 45,
+    "pitchPx": 35,
+    "rollScale": 1.0,
+    "leanPerYaw": 0.06,
+    "leanRollShare": 0.5,
+    "bodyShiftPx": 18,
+    "leanPivot": 1.1,
     "hairLag": 0.12,
-    "breath": 0.006
+    "breath": 0.006,
+    "gazePxX": 10,
+    "gazePxY": 4,
+    "maxLean": 0.1
   },
   "expressions": [
     {
@@ -128,6 +137,20 @@
         "cy": 493,
         "rx": 50,
         "ry": 34
+      }
+    ],
+    "irises": [
+      {
+        "cx": 427,
+        "cy": 395,
+        "rx": 24,
+        "ry": 23
+      },
+      {
+        "cx": 572,
+        "cy": 382,
+        "rx": 24,
+        "ry": 23
       }
     ]
   }

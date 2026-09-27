@@ -99,6 +99,111 @@ def shift(a, dx, dy):
     return out
 
 
+def connected_to(mask, seed):
+    """mask のうち seed とつながっている部分だけ残す（4 近傍の塗りつぶし）"""
+    from collections import deque
+
+    out = np.zeros_like(mask)
+    ys, xs = np.nonzero(seed & mask)
+    q = deque(zip(ys.tolist(), xs.tolist()))
+    for y, x in q:
+        out[y, x] = True
+    h, w = mask.shape
+    while q:
+        y, x = q.popleft()
+        for ny, nx in ((y + 1, x), (y - 1, x), (y, x + 1), (y, x - 1)):
+            if 0 <= ny < h and 0 <= nx < w and mask[ny, nx] and not out[ny, nx]:
+                out[ny, nx] = True
+                q.append((ny, nx))
+    return out
+
+
+def fill_from_surroundings(rgb, hole, known, iterations=40):
+    """hole の中を、周り（known）の色から少しずつにじませて埋める（白目の塗りつぶし用）"""
+
+    def blur(x):
+        im = Image.fromarray((np.clip(x, 0, 1) * 255).astype(np.uint8))
+        return np.asarray(im.filter(ImageFilter.BoxBlur(2))).astype(np.float32) / 255.0
+
+    val = np.where(known[..., None], rgb, 0.0)
+    done = known.copy()
+    for _ in range(iterations):
+        w = blur(done.astype(np.float32))
+        est = np.stack([blur(val[..., c] * done) for c in range(3)], -1) / np.maximum(w[..., None], 1e-3)
+        reach = hole & ~done & (w > 0.05)
+        if not reach.any():
+            break
+        val = np.where(reach[..., None], est, val)
+        done |= reach
+    return np.where(hole[..., None], val, rgb)
+
+
+def make_gaze_parts(base, cl):
+    """目線用のパーツを基本画像から作る
+    eye_socket.png: 黒目を消して白目で埋めた目（開いた目の土台）
+    iris.png:       黒目だけ（アプリがずらして描く）
+    eye_mask.png:   黒目が見えてよい範囲（R=画面左の目、G=画面右の目）"""
+    irises = cl.get("irises", [])
+    cores = cl.get("eyeCores", [])
+    if len(irises) != 2 or len(cores) != 2:
+        print("目線パーツ: cleanup.irises と cleanup.eyeCores が 2 つずつ無いのでスキップ")
+        return
+    H, W = base.shape[:2]
+    rgb = base[..., :3]
+    mx = rgb.max(-1)
+    mn = rgb.min(-1)
+    sat = (mx - mn) / (mx + 1e-6)
+    dark = mx < 0.38  # まつ毛・目の輪郭
+    white = (sat < 0.16) & (mx > 0.78)  # 白目
+
+    socket = base.copy()
+    iris_img = np.zeros_like(base)
+    mask = np.zeros((H, W, 4), np.float32)
+    mask[..., 3] = 1.0
+    for i, (ir, co) in enumerate(zip(irises, cores)):
+        core = ellipse_mask((H, W), co)
+        inner = ellipse_mask((H, W), ir, 0.7)  # 瞳孔の周りは暗くてもまつ毛ではない
+        ell = ellipse_mask((H, W), ir) & core
+        # 各列を黒目の上端から下へ見て、まつ毛（暗い画素）が続く所までをまぶたとする
+        lid = np.zeros((H, W), bool)
+        for x in range(max(0, int(ir["cx"] - ir["rx"])), min(W, int(ir["cx"] + ir["rx"]) + 1)):
+            ys = np.nonzero(ell[:, x])[0]
+            for y in ys:
+                if dark[y, x] and not inner[y, x]:
+                    lid[y, x] = True
+                else:
+                    break
+        iris = ell
+        opening = (white & core) | (ell & ~lid)
+        opening = soften(opening, 1, 0) > 0.5
+        opening = np.asarray(Image.fromarray((opening * 255).astype(np.uint8)).filter(ImageFilter.MinFilter(3))) > 127
+        opening = connected_to(opening & ~lid & ~(dark & ~ell), ell & ~lid)
+
+        # 黒目の色: まぶたに隠れた上の部分は、見えている一番上の色を上へ伸ばして補う
+        iris_rgb = rgb.copy()
+        for x in range(max(0, int(ir["cx"] - ir["rx"])), min(W, int(ir["cx"] + ir["rx"]) + 1)):
+            ys = np.nonzero(ell[:, x] & ~lid[:, x])[0]
+            if len(ys):
+                top = ys[0]
+                iris_rgb[: top, x] = rgb[top, x]
+
+        # 白目で黒目の場所を埋める（黒目が動いたときに反対側に見える部分）
+        hole = (soften(ell, 1, 0) > 0.5) & opening
+        filled = fill_from_surroundings(rgb, hole, opening & ~hole)
+        smooth = np.stack([np.asarray(Image.fromarray((filled[..., c] * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(2))) / 255.0 for c in range(3)], -1)
+        filled = np.where(hole[..., None], smooth, filled)
+        socket[..., :3] = np.where(hole[..., None], filled, socket[..., :3])
+
+        soft_iris = soften(ell, 0, 1.0)
+        iris_img[..., :3] = np.where(ell[..., None] | (soft_iris[..., None] > 0), iris_rgb, iris_img[..., :3])
+        iris_img[..., 3] = np.maximum(iris_img[..., 3], soft_iris)
+        mask[..., i] = soften(opening, 0, 0.8)
+        print(f"目線パーツ: 目{i + 1} 黒目 {int(iris.sum())} px / 見える範囲 {int(opening.sum())} px")
+    save(socket, OUT / "eye_socket.png")
+    save(iris_img, OUT / "iris.png")
+    save(mask, OUT / "eye_mask.png")
+
+
 def save(a, path):
     Image.fromarray((np.clip(a, 0, 1) * 255 + 0.5).astype(np.uint8), "RGBA").save(path, optimize=True)
 
@@ -156,6 +261,8 @@ def main():
         out = var * (1 - use_base[..., None]) + base * use_base[..., None]
         save(out, OUT / f"{part}.png")
         print(f"{part}: 元画像 {src}、位置補正 ({-dx:+d}, {-dy:+d}) px、髪を base に統一")
+
+    make_gaze_parts(base, cl)
 
     # 位置は画像側で合わせたので、アプリ側の補正は 0 に戻す
     cfg["align"] = {}

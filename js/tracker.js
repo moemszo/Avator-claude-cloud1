@@ -50,6 +50,29 @@ export function measure(landmarks, blendshapes) {
   const roll = Math.atan2(L[263].y - L[33].y, L[263].x - L[33].x); // 画像上で時計回り → 正
 
   const mouthOpen = dist(L[13], L[14]) / faceW;
+
+  // 目線（左右）: 目頭と目尻の間のどこに黒目の中心があるか。-0.5〜0.5 程度、画像の右が正
+  let gazeX = 0;
+  if (L.length > 473) {
+    const eyes = [
+      [L[33], L[133]],
+      [L[362], L[263]],
+    ];
+    const irises = [L[468], L[473]];
+    let sum = 0;
+    for (const [a, b] of eyes) {
+      const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+      const iris = dist(irises[0], mid) < dist(irises[1], mid) ? irises[0] : irises[1];
+      const x0 = Math.min(a.x, b.x);
+      const x1 = Math.max(a.x, b.x);
+      sum += (iris.x - x0) / Math.max(1e-4, x1 - x0) - 0.5;
+    }
+    gazeX = sum / 2;
+  }
+  // 目線（上下）: 下を見ると正
+  const gazeY =
+    ((bs.eyeLookDownLeft ?? 0) + (bs.eyeLookDownRight ?? 0)) / 2 -
+    ((bs.eyeLookUpLeft ?? 0) + (bs.eyeLookUpRight ?? 0)) / 2;
   const mouthWidth = dist(L[61], L[291]) / faceW;
 
   return {
@@ -60,6 +83,8 @@ export function measure(landmarks, blendshapes) {
     roll,
     mouthOpen,
     mouthWidth,
+    gazeX,
+    gazeY,
     jawOpen: bs.jawOpen ?? 0,
     funnel: Math.max(bs.mouthFunnel ?? 0, bs.mouthPucker ?? 0),
     smile: ((bs.mouthSmileLeft ?? 0) + (bs.mouthSmileRight ?? 0)) / 2,
@@ -170,6 +195,9 @@ export class FaceTracker {
     if (!this.latest) return false;
     const m = this.latest;
     this.calib = { ...m };
+    // 口は「閉じた状態」の基準。うっかり開けたまま押しても壊れないよう上限を付ける
+    this.calib.mouthOpen = Math.min(m.mouthOpen, 0.03);
+    this.calib.jawOpen = Math.min(m.jawOpen, 0.15);
     this.eyeBase = {
       imgLeft: Math.max(0.12, m.eyeImgLeft),
       imgRight: Math.max(0.12, m.eyeImgRight),
@@ -186,7 +214,7 @@ export class FaceTracker {
   features() {
     const m = this.latest;
     if (!m) return null;
-    const c = this.calib ?? { yaw: 0, pitch: 0.45, roll: 0, mouthWidth: 0.36 };
+    const c = this.calib ?? { yaw: 0, pitch: 0.45, roll: 0, mouthWidth: 0.36, gazeX: 0, gazeY: 0, mouthOpen: 0, jawOpen: 0 };
     const openness = (v, base) => clamp01((v / base - 0.45) / (0.85 - 0.45));
     return {
       yaw: m.yaw - c.yaw,
@@ -194,10 +222,13 @@ export class FaceTracker {
       roll: m.roll - c.roll,
       eyeOpenImgLeft: openness(m.eyeImgLeft, this.eyeBase.imgLeft),
       eyeOpenImgRight: openness(m.eyeImgRight, this.eyeBase.imgRight),
-      mouthOpen: clamp01(Math.max(m.jawOpen * 1.1, (m.mouthOpen - 0.01) * 5)),
+      // 口の開き: 閉じている時の値を差し引いてから大きめに増幅（はっきり動かすため）
+      mouthOpen: clamp01(Math.max((m.jawOpen - (c.jawOpen ?? 0)) * 1.8, (m.mouthOpen - (c.mouthOpen ?? 0) - 0.005) * 7)),
       funnel: m.funnel,
       wide: clamp01(Math.max(m.smile, m.stretch) * 1.3 + (m.mouthWidth - c.mouthWidth) * 4),
       browUp: m.browUp,
+      gazeX: m.gazeX - (c.gazeX ?? 0),
+      gazeY: m.gazeY - (c.gazeY ?? 0),
     };
   }
 }

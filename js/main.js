@@ -29,7 +29,7 @@ const els = {
   toast: $('toast'),
 };
 
-const sliders = ['sYaw', 'sPitch', 'sRoll', 'sMouth', 'sEye', 'sSmooth'];
+const sliders = ['sYaw', 'sPitch', 'sRoll', 'sMouth', 'sEye', 'sGaze', 'sSmooth'];
 const SETTINGS_KEY = 'vtuber-avatar-settings';
 
 function toast(msg, ms = 2200) {
@@ -84,6 +84,7 @@ const state = {
   mouthFade: 1,
 };
 const motion = { yaw: 0, pitch: 0, roll: 0 };
+const gaze = { x: 0, y: 0 };
 const hair = { yaw: 0, pitch: 0, roll: 0, vy: 0, vp: 0, vr: 0 };
 let mouthCandidate = 'closed';
 let mouthCandidateSince = 0;
@@ -102,6 +103,7 @@ async function boot() {
   }
   renderer = new WarpRenderer(els.canvas);
   renderer.setSize(avatar.width, avatar.height);
+  renderer.setGazeImages(avatar.images.iris, avatar.images.eye_mask);
   $('avatarWrap').style.aspectRatio = `${avatar.width} / ${avatar.height}`;
   buildExpressionButtons();
   editor = new Editor({ avatar, overlay: els.overlay, toast, onChange: () => avatar.rebake() });
@@ -193,12 +195,16 @@ function eyeStateFrom(open, prev) {
   return open < th.toClosed ? 'closed' : open < th.toHalf ? 'half' : 'open';
 }
 
+// 口の形: 開き具合と、すぼめ・横に引く度合いから決める
+// 使える口の画像が少ないので「閉じ / 小さく開く(え) / 大きく開く(あ) / すぼめ(お)」を
+// はっきり切り替えることを優先する
 function vowelFrom(f) {
   const open = f.mouthOpen;
-  if (open < 0.12) return 'closed';
-  if (f.funnel > 0.35) return open > 0.4 ? 'o' : 'u';
-  if (f.wide > 0.45) return open > 0.4 ? 'e' : 'i';
-  return open > 0.28 ? 'a' : 'i';
+  if (open < 0.1) return 'closed';
+  if (f.funnel > 0.3) return open > 0.3 ? 'o' : 'u';
+  if (open > 0.38) return 'a';
+  if (f.wide > 0.5) return 'i';
+  return 'e';
 }
 
 function update(now, dt) {
@@ -209,10 +215,12 @@ function update(now, dt) {
   const sRoll = +$('sRoll').value;
   const sMouth = +$('sMouth').value;
   const sEye = +$('sEye').value;
+  const sGaze = +$('sGaze').value;
   const smooth = +$('sSmooth').value;
 
   const f = override ?? (tracker.detected ? tracker.features() : null);
   let target = { yaw: 0, pitch: 0, roll: 0 };
+  let gazeTarget = { x: gaze.x, y: gaze.y };
   let eyeL = 'open';
   let eyeR = 'open';
   let mouth = 'closed';
@@ -232,6 +240,14 @@ function update(now, dt) {
     eyeL = eyeStateFrom(oL, state.eyeL);
     eyeR = eyeStateFrom(oR, state.eyeR);
     mouth = vowelFrom({ ...f, mouthOpen: clamp(f.mouthOpen * sMouth, 0, 1) });
+    // 目線: まばたき中は黒目の位置が乱れるので動かさない
+    if (Math.min(oL, oR) > 0.5) {
+      const dz = (v) => (Math.abs(v) < 0.08 ? 0 : v - Math.sign(v) * 0.08); // 小さなブレは無視
+      gazeTarget = {
+        x: clamp(dz((f.gazeX ?? 0) / 0.1) * sGaze * sign, -1, 1),
+        y: clamp(dz((f.gazeY ?? 0) / 0.4) * sGaze, -1, 1),
+      };
+    }
   } else {
     // 顔が映っていない時: ゆっくり揺れて、時々まばたき
     if (els.idle.checked) {
@@ -243,6 +259,9 @@ function update(now, dt) {
         nextIdleBlink = now + 2500 + Math.random() * 3500;
       }
       if (now < idleBlinkUntil) eyeL = eyeR = 'closed';
+      gazeTarget = { x: Math.sin(now / 3700) * 0.35, y: 0 };
+    } else {
+      gazeTarget = { x: 0, y: 0 };
     }
   }
 
@@ -251,6 +270,11 @@ function update(now, dt) {
   motion.yaw = lerp(motion.yaw, target.yaw, a);
   motion.pitch = lerp(motion.pitch, target.pitch, a);
   motion.roll = lerp(motion.roll, target.roll, a);
+
+  // 目線は速めに追従（目の動きはすばやいので）
+  const ag = 1 - Math.pow(Math.min(smooth, 0.6) * 0.6, dt / 16.7);
+  gaze.x = lerp(gaze.x, gazeTarget.x, ag);
+  gaze.y = lerp(gaze.y, gazeTarget.y, ag);
 
   // 髪: 頭より少し遅れてばねのように揺れる
   const lag = avatar.config.motion?.hairLag ?? 0.12;
@@ -270,13 +294,13 @@ function update(now, dt) {
     mouthCandidate = mouth;
     mouthCandidateSince = now;
   }
-  const hold = mouth === 'closed' ? 70 : 40;
+  const hold = mouth === 'closed' ? 45 : 25;
   if (mouthCandidate !== state.mouth && now - mouthCandidateSince >= hold) {
     state.prevMouth = state.mouth;
     state.mouth = mouthCandidate;
     state.mouthFade = 0;
   }
-  state.mouthFade = Math.min(1, state.mouthFade + dt / 70);
+  state.mouthFade = Math.min(1, state.mouthFade + dt / 45);
   state.eyeL = eyeL;
   state.eyeR = eyeR;
 
@@ -305,6 +329,7 @@ function drawDebug(f) {
     `トラッキング: ${tracker.running ? `${tracker.fps.toFixed(0)} fps` : '停止中'} / 顔: ${tracker.detected ? 'あり' : 'なし'}`,
     `基準: ${tracker.calib ? '設定済み' : '未設定（C キー）'}`,
     `向き  左右${fmt(motion.yaw)} 上下${fmt(motion.pitch)} 傾き${fmt(motion.roll)}`,
+    `目線  左右${fmt(gaze.x)} 上下${fmt(gaze.y)}`,
     f ? `目  左 ${state.eyeL} / 右 ${state.eyeR}` : '',
     f ? `口  ${state.mouth}  (開き ${f.mouthOpen.toFixed(2)} すぼめ ${f.funnel.toFixed(2)} 横 ${f.wide.toFixed(2)})` : '',
   ]
@@ -324,9 +349,16 @@ function loop(now) {
     const changed = avatar.compose(editor.previewState(state));
     if (changed || editor.dirtyTexture) renderer.uploadTexture(avatar.comp);
     editor.dirtyTexture = false;
+    renderer.gaze = { x: 0, y: 0, ...avatar.gazeEyes(editor.previewState(state)) };
     renderer.deform({ yaw: 0, pitch: 0, roll: 0, hairYaw: 0, hairPitch: 0, hairRoll: 0, breath: 0 }, avatar.config);
   } else {
     if (avatar.compose(state)) renderer.uploadTexture(avatar.comp);
+    const mm = avatar.config.motion ?? {};
+    renderer.gaze = {
+      x: gaze.x * (mm.gazePxX ?? 8),
+      y: gaze.y * (mm.gazePxY ?? 4),
+      ...avatar.gazeEyes(state),
+    };
     const breath = (avatar.config.motion?.breath ?? 0.006) * Math.sin((now / 3600) * Math.PI * 2);
     renderer.deform(
       {
@@ -384,6 +416,7 @@ window.addEventListener('keydown', (e) => {
 window.__avatar = {
   state,
   motion,
+  gaze,
   setExpression,
   setFeatures: (f) => (override = f),
   get editor() {

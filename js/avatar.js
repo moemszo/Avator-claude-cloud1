@@ -117,9 +117,22 @@ export class Avatar {
     return this.config.expressions?.[index] ?? { name: '通常', image: null, eyeTracking: true };
   }
 
+  // 目線（黒目を動かす）が使えるか。黒目の画像があり、今の表情が基本の目を使う時だけ
+  gazeAvailable(expressionIndex) {
+    if (!(this.images.eye_socket && this.images.iris && this.images.eye_mask)) return false;
+    const exp = this.expression(expressionIndex);
+    return exp.gaze ?? !exp.image;
+  }
+
+  // 目線を使う目 { left, right }（0 or 1）
+  gazeEyes(state) {
+    if (!this.gazeAvailable(state.expression)) return { left: 0, right: 0 };
+    return { left: state.eyeL === 'open' ? 1 : 0, right: state.eyeR === 'open' ? 1 : 0 };
+  }
+
   // 目の状態に対応する画像（無ければ近いもので代用）
-  eyeImage(state) {
-    if (state === 'open') return null;
+  eyeImage(state, gaze = false) {
+    if (state === 'open') return gaze ? 'eye_socket' : null;
     if (state === 'half') return this.images.eyes_half ? 'eyes_half' : null;
     return this.images.eyes_closed ? 'eyes_closed' : this.images.eyes_half ? 'eyes_half' : null;
   }
@@ -152,11 +165,12 @@ export class Avatar {
     if (expImage) this._draw(ctx, expImage, 'face');
 
     if (exp.eyeTracking !== false) {
+      const gaze = this.gazeAvailable(state.expression);
       for (const [side, region] of [
         [state.eyeL, 'eyeL'],
         [state.eyeR, 'eyeR'],
       ]) {
-        const img = this.eyeImage(side);
+        const img = this.eyeImage(side, gaze);
         if (img) this._draw(ctx, img, region);
       }
     }
