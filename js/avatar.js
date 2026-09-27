@@ -124,14 +124,16 @@ export class Avatar {
     return this.images.eyes_closed ? 'eyes_closed' : this.images.eyes_half ? 'eyes_half' : null;
   }
 
-  // 口の状態に対応する画像。closed は「今の表情の口」
-  mouthImage(state, expImage) {
-    if (state === 'closed') return expImage && this.images[expImage] ? expImage : 'base';
+  // 口の状態に対応する画像。closed は基本画像の口（表情に ownMouth: true があればその表情の口）
+  mouthImage(state, expImage, ownMouth) {
+    if (state === 'closed') return ownMouth && expImage ? expImage : 'base';
     const want = 'mouth_' + state;
     if (this.images[want]) return want;
-    const alt = { i: 'mouth_e', e: 'mouth_i', u: 'mouth_o', o: 'mouth_u' }[state];
-    if (alt && this.images[alt]) return alt;
-    return this.images.mouth_a ? 'mouth_a' : null;
+    const alt = { i: ['mouth_e'], e: ['mouth_i'], u: ['mouth_o'], o: ['mouth_u', 'mouth_a'] }[state] ?? [];
+    for (const key of [...alt, 'mouth_a', 'mouth_e', 'mouth_i', 'mouth_o', 'mouth_u']) {
+      if (this.images[key]) return key;
+    }
+    return null;
   }
 
   // state: { expression, eyeL, eyeR, mouth, prevMouth, mouthFade }
@@ -159,8 +161,9 @@ export class Avatar {
       }
     }
 
-    const cur = this.mouthImage(state.mouth, expImage);
-    const prev = this.mouthImage(state.prevMouth ?? state.mouth, expImage);
+    const own = !!exp.ownMouth;
+    const cur = this.mouthImage(state.mouth, expImage, own);
+    const prev = this.mouthImage(state.prevMouth ?? state.mouth, expImage, own);
     if (state.mouthFade < 1 && prev && prev !== cur) this._draw(ctx, prev, 'mouth', 1);
     if (cur) this._draw(ctx, cur, 'mouth', prev && prev !== cur ? state.mouthFade : 1);
     return true;

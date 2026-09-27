@@ -18,39 +18,56 @@
   },
   "regions": {
     "eyeL": {
-      "cx": 462,
-      "cy": 366,
-      "rx": 60,
-      "ry": 42
+      "cx": 427,
+      "cy": 390,
+      "rx": 68,
+      "ry": 46
     },
     "eyeR": {
-      "cx": 602,
-      "cy": 360,
-      "rx": 60,
-      "ry": 42
+      "cx": 574,
+      "cy": 380,
+      "rx": 68,
+      "ry": 46
     },
     "mouth": {
-      "cx": 534,
-      "cy": 458,
-      "rx": 54,
+      "cx": 509,
+      "cy": 492,
+      "rx": 56,
       "ry": 38
     },
     "face": {
-      "cx": 532,
-      "cy": 405,
-      "rx": 150,
-      "ry": 110
+      "cx": 505,
+      "cy": 440,
+      "rx": 160,
+      "ry": 125
     },
     "head": {
-      "cx": 530,
-      "cy": 330,
-      "rx": 240,
-      "ry": 250
+      "cx": 510,
+      "cy": 320,
+      "rx": 290,
+      "ry": 300
     }
   },
-  "neckY": 560,
-  "feather": 12,
-  "align": {},
+  "neckY": 600,
+  "feather": 14,
+  "align": {
+    "exp_smile": {
+      "dx": -1,
+      "dy": 0
+    },
+    "eyes_closed": {
+      "dx": -1,
+      "dy": 0
+    },
+    "mouth_a": {
+      "dx": -1,
+      "dy": 0
+    },
+    "exp_shy": {
+      "dx": -1,
+      "dy": 0
+    }
+  },
   "motion": {
     "yawPx": 60,
     "pitchPx": 40,
@@ -70,7 +87,8 @@
       "key": "2",
       "name": "笑顔",
       "image": "exp_smile",
-      "eyeTracking": false
+      "eyeTracking": false,
+      "ownMouth": true
     },
     {
       "key": "3",
