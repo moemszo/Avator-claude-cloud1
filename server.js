@@ -1,5 +1,5 @@
 // ローカル確認用の小さな静的サーバー（依存パッケージなし）。
-//   npm start → http://localhost:8080
+//   npm start → http://127.0.0.1:8765（使用中なら次の番号を自動で試す）
 // - /vendor/mediapipe/* は node_modules の MediaPipe を配信
 // - POST /api/save-avatar でパーツ調整モードの設定を avatar/avatar.json に保存
 import { createServer } from 'node:http';
@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const mediapipeDir = join(root, 'node_modules', '@mediapipe', 'tasks-vision');
-const PORT = Number(process.env.PORT) || 8080;
+const PORT = Number(process.env.PORT) || 8765;
 
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -89,6 +89,25 @@ const server = createServer(async (req, res) => {
   await serveFile(res, file);
 });
 
-server.listen(PORT, '127.0.0.1', () => {
-  console.log(`VTuber アバター: http://localhost:${PORT}`);
+server.once('listening', () => {
+  const { port } = server.address();
+  console.log('');
+  console.log(`  VTuber アバター: http://127.0.0.1:${port}`);
+  console.log('  （このアドレスをブラウザで開いてください。止めるときは Ctrl+C）');
+  console.log('');
 });
+
+// ほかのアプリ（llama.cpp など）が同じポートを使っていたら、次の番号を試す
+function listen(port, triesLeft = 20) {
+  server.once('error', (err) => {
+    if (err.code === 'EADDRINUSE' && triesLeft > 0) {
+      console.log(`ポート ${port} はほかのアプリが使用中です。${port + 1} を試します…`);
+      listen(port + 1, triesLeft - 1);
+    } else {
+      console.error('サーバーを起動できません:', err.message);
+      process.exit(1);
+    }
+  });
+  server.listen(port, '127.0.0.1');
+}
+listen(PORT);
