@@ -50,24 +50,7 @@
   },
   "neckY": 600,
   "feather": 14,
-  "align": {
-    "exp_smile": {
-      "dx": -1,
-      "dy": 0
-    },
-    "eyes_closed": {
-      "dx": -1,
-      "dy": 0
-    },
-    "mouth_a": {
-      "dx": -1,
-      "dy": 0
-    },
-    "exp_shy": {
-      "dx": -1,
-      "dy": 0
-    }
-  },
+  "align": {},
   "motion": {
     "yawPx": 60,
     "pitchPx": 40,
@@ -100,7 +83,52 @@
       "key": "4",
       "name": "驚き",
       "image": "exp_surprised",
-      "eyeTracking": true
+      "eyeTracking": true,
+      "ownMouth": true
     }
-  ]
+  ],
+  "cleanup": {
+    "eyeCores": [
+      {
+        "cx": 420,
+        "cy": 390,
+        "rx": 60,
+        "ry": 36
+      },
+      {
+        "cx": 586,
+        "cy": 380,
+        "rx": 60,
+        "ry": 36
+      }
+    ],
+    "browCores": [
+      {
+        "cx": 425,
+        "cy": 338,
+        "rx": 62,
+        "ry": 20
+      },
+      {
+        "cx": 582,
+        "cy": 328,
+        "rx": 62,
+        "ry": 20
+      }
+    ],
+    "reuse": {
+      "mouth_a": "exp_smile",
+      "mouth_o": "exp_surprised"
+    },
+    "hairGrow": 3,
+    "edgeBlur": 1.5,
+    "mouthCores": [
+      {
+        "cx": 509,
+        "cy": 493,
+        "rx": 50,
+        "ry": 34
+      }
+    ]
+  }
 }

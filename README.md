@@ -10,9 +10,9 @@ Webカメラで顔を読み取り、2D のアバターを動かすブラウザ�
 
 顔の解析には Google MediaPipe を使います。**ブラウザの中だけで動くので、カメラ映像は外部に送信されません。**
 
-> 📝 `avatar/parts/` には、ChatGPT で作った基本画像・笑顔・照れ・「え」の口が入っています。
-> 閉じ目（`eyes_closed`）と「あ」の口（`mouth_a`）は、今は笑顔の画像で代用しています。
-> 足りない画像（半目・「い/う/お」の口・驚き）の作り方は **[docs/PARTS_GUIDE.md](docs/PARTS_GUIDE.md)** を見てください。
+> 📝 `avatar/source/` が ChatGPT で作った元画像です。`avatar/parts/` は、そこから下ごしらえ（髪のずれ取り）をした画像です。
+> 今あるのは、基本・閉じ目・笑顔・照れ・驚き・「え」の口です。「あ」の口は笑顔、「お」の口は驚き顔から流用しています。
+> 足りない画像（半目・「い/う」の口）の作り方と、下ごしらえの手順は **[docs/PARTS_GUIDE.md](docs/PARTS_GUIDE.md)** を見てください。
 
 ## 起動方法
 
@@ -56,7 +56,8 @@ Chrome か Edge で、`npm start` の後に表示されるアドレス（通常 
 
 ## 自分のパーツ画像に差し替える
 
-1. [docs/PARTS_GUIDE.md](docs/PARTS_GUIDE.md) の手順で画像を作り、`avatar/parts/` に同じ名前で上書きします。
+1. [docs/PARTS_GUIDE.md](docs/PARTS_GUIDE.md) の手順で画像を作り、`avatar/source/` に置きます。
+   `python scripts/prepare_parts.py` を実行して、髪のずれを取った画像を `avatar/parts/` に書き出します。
 2. `E` キーでパーツ調整モードにして、目・口・顔・頭の楕円を画像に合わせ、「保存」を押します。
 
 ## 仕組み
@@ -73,6 +74,7 @@ Webカメラ ─→ MediaPipe Face Landmarker（顔の 478 点 + 表情の値）
 |---|---|
 | `avatar/avatar.json` | 画像ファイル名、楕円の範囲、動きの大きさ（`motion`）、表情キーの割り当て |
 | `js/editor.js` | パーツ調整モード |
+| `scripts/prepare_parts.py` | 差分画像の下ごしらえ（位置合わせと、髪を基本画像にそろえる） |
 | `server.js` | ローカル用の簡易サーバー（パーツ調整の保存もここで受けます） |
 
 `avatar.json` の `motion` の値:
