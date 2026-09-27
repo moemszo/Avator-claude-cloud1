@@ -1,0 +1,88 @@
+{
+  "canvas": {
+    "width": 1024,
+    "height": 1536
+  },
+  "parts": {
+    "base": "parts/base.png",
+    "eyes_half": "parts/eyes_half.png",
+    "eyes_closed": "parts/eyes_closed.png",
+    "mouth_a": "parts/mouth_a.png",
+    "mouth_i": "parts/mouth_i.png",
+    "mouth_u": "parts/mouth_u.png",
+    "mouth_e": "parts/mouth_e.png",
+    "mouth_o": "parts/mouth_o.png",
+    "exp_smile": "parts/exp_smile.png",
+    "exp_shy": "parts/exp_shy.png",
+    "exp_surprised": "parts/exp_surprised.png"
+  },
+  "regions": {
+    "eyeL": {
+      "cx": 462,
+      "cy": 366,
+      "rx": 60,
+      "ry": 42
+    },
+    "eyeR": {
+      "cx": 602,
+      "cy": 360,
+      "rx": 60,
+      "ry": 42
+    },
+    "mouth": {
+      "cx": 534,
+      "cy": 458,
+      "rx": 54,
+      "ry": 38
+    },
+    "face": {
+      "cx": 532,
+      "cy": 405,
+      "rx": 150,
+      "ry": 110
+    },
+    "head": {
+      "cx": 530,
+      "cy": 330,
+      "rx": 240,
+      "ry": 250
+    }
+  },
+  "neckY": 560,
+  "feather": 12,
+  "align": {},
+  "motion": {
+    "yawPx": 60,
+    "pitchPx": 40,
+    "rollScale": 1,
+    "bodyFollow": 0.2,
+    "hairLag": 0.12,
+    "breath": 0.006
+  },
+  "expressions": [
+    {
+      "key": "1",
+      "name": "通常",
+      "image": null,
+      "eyeTracking": true
+    },
+    {
+      "key": "2",
+      "name": "笑顔",
+      "image": "exp_smile",
+      "eyeTracking": false
+    },
+    {
+      "key": "3",
+      "name": "照れ",
+      "image": "exp_shy",
+      "eyeTracking": true
+    },
+    {
+      "key": "4",
+      "name": "驚き",
+      "image": "exp_surprised",
+      "eyeTracking": true
+    }
+  ]
+}

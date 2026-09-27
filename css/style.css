@@ -1,0 +1,60 @@
+:root {
+  --panel-bg: rgba(255, 255, 255, 0.94);
+  --text: #3a2b30;
+  --muted: #8a7479;
+  --accent: #d9707f;
+  --accent-dark: #b9505f;
+  --border: #ecd9dc;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; font-family: system-ui, "Hiragino Sans", "Yu Gothic UI", "Meiryo", sans-serif; color: var(--text); background: #fff6f7; }
+
+#stage { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
+#stage.bg-soft { background: linear-gradient(#fff4f6, #fde4ea); }
+#stage.bg-green { background: #00b140; }
+#stage.bg-blue { background: #0047bb; }
+#stage.bg-white { background: #fff; }
+#stage.bg-transparent { background: repeating-conic-gradient(#ddd 0 25%, #fff 0 50%) 0 0 / 24px 24px; }
+body.transparent-bg, body.transparent-bg #stage { background: transparent !important; }
+
+#avatarWrap { position: relative; height: 100%; aspect-ratio: 2 / 3; max-width: 100%; }
+#avatar, #editOverlay { position: absolute; inset: 0; width: 100%; height: 100%; }
+#editOverlay { cursor: crosshair; }
+
+#expBadge { position: fixed; left: 16px; top: 16px; padding: 6px 12px; border-radius: 999px; background: rgba(217,112,127,.9); color: #fff; font-size: 14px; }
+#toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); padding: 10px 16px; border-radius: 8px; background: rgba(40,30,35,.88); color: #fff; font-size: 14px; }
+
+#panel { position: fixed; right: 12px; top: 12px; bottom: 12px; width: 320px; overflow-y: auto; background: var(--panel-bg); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; font-size: 13px; box-shadow: 0 6px 24px rgba(120,60,70,.12); }
+#panel.hidden { display: none; }
+#panel header { display: flex; align-items: center; justify-content: space-between; }
+#panel h1 { font-size: 16px; margin: 0; }
+#panel h2 { font-size: 13px; margin: 0 0 6px; color: var(--accent-dark); }
+#panel h2 small { color: var(--muted); font-weight: normal; }
+#panel section { border-top: 1px solid var(--border); padding: 10px 0; }
+#panel label { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 4px 0; }
+#panel label.check { justify-content: flex-start; }
+#panel input[type=range] { width: 150px; }
+#panel select { max-width: 180px; }
+#camSelect { width: 100%; max-width: none !important; margin-top: 6px; }
+.row { display: flex; gap: 6px; align-items: center; margin: 4px 0; }
+.row.wrap { flex-wrap: wrap; }
+button { font: inherit; padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px; background: #fff; color: var(--text); cursor: pointer; }
+button:hover:not(:disabled) { border-color: var(--accent); }
+button:disabled { opacity: .5; cursor: default; }
+button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+button.primary:hover:not(:disabled) { background: var(--accent-dark); }
+button.active { background: #fde4ea; border-color: var(--accent); }
+button.ghost { border: none; background: none; font-size: 18px; padding: 0 4px; }
+.status { color: var(--muted); margin: 6px 0 0; }
+.status.ok { color: #2f8a4a; }
+.status.err { color: #c0392b; }
+.hint { color: var(--muted); font-size: 12px; margin: 4px 0; }
+kbd { border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; font-size: 11px; background: #fff; }
+
+#debugView { position: fixed; left: 12px; bottom: 12px; width: 240px; background: rgba(0,0,0,.75); border-radius: 8px; overflow: hidden; color: #fff; }
+#debugView video, #debugView canvas { display: block; width: 100%; transform: scaleX(-1); }
+#debugView canvas { position: absolute; left: 0; top: 0; }
+#debugView pre { margin: 0; padding: 6px 8px; font-size: 11px; line-height: 1.35; }
+#debugView.hidden-video video, #debugView.hidden-video canvas { display: none; }
+/* カメラ映像は解析に使うので、デバッグ表示を消しても video 要素は動かし続ける */
+#debugView[hidden] { display: block !important; position: fixed; left: -10000px; }

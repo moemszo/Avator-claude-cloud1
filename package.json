@@ -1,0 +1,14 @@
+{
+  "name": "vtuber-face-avatar",
+  "version": "0.1.0",
+  "description": "Webカメラの顔トラッキングで動く 2D VTuber アバター（正面・バストアップ）",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "postinstall": "node scripts/fetch-model.js",
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@mediapipe/tasks-vision": "1.0.1"
+  }
+}

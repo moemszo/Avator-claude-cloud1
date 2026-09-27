@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>VTuber アバター</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <main id="stage" class="bg-soft">
+    <div id="avatarWrap">
+      <canvas id="avatar"></canvas>
+      <canvas id="editOverlay" hidden></canvas>
+    </div>
+    <div id="expBadge" hidden></div>
+    <div id="toast" hidden></div>
+  </main>
+
+  <aside id="panel">
+    <header>
+      <h1>VTuber アバター</h1>
+      <button id="hidePanel" class="ghost" title="パネルを隠す (H)">×</button>
+    </header>
+
+    <section>
+      <div class="row">
+        <button id="camBtn" class="primary">カメラ開始</button>
+        <button id="calibBtn" disabled title="正面を向いて押す (C)">正面を基準にする</button>
+      </div>
+      <select id="camSelect" hidden></select>
+      <p id="status" class="status">カメラは止まっています</p>
+    </section>
+
+    <section>
+      <h2>表情 <small>キー 1〜4 / 0 で通常</small></h2>
+      <div id="expButtons" class="row wrap"></div>
+    </section>
+
+    <section>
+      <h2>表示</h2>
+      <label>背景
+        <select id="bgSelect">
+          <option value="soft">淡いピンク</option>
+          <option value="green">グリーンバック</option>
+          <option value="blue">ブルーバック</option>
+          <option value="transparent">透明（市松模様で表示）</option>
+          <option value="white">白</option>
+        </select>
+      </label>
+      <label class="check"><input type="checkbox" id="mirror" checked /> 鏡のように動かす（左右反転）</label>
+      <label class="check"><input type="checkbox" id="debug" /> カメラと顔の点を表示 (D)</label>
+      <label class="check"><input type="checkbox" id="idle" checked /> 顔が映っていない時に自動でまばたき</label>
+    </section>
+
+    <section>
+      <h2>感度</h2>
+      <label>顔の左右 <input type="range" id="sYaw" min="0" max="2" step="0.05" value="1" /></label>
+      <label>顔の上下 <input type="range" id="sPitch" min="0" max="2" step="0.05" value="1" /></label>
+      <label>首のかしげ <input type="range" id="sRoll" min="0" max="2" step="0.05" value="1" /></label>
+      <label>口の開き <input type="range" id="sMouth" min="0.3" max="2.5" step="0.05" value="1" /></label>
+      <label>目の閉じやすさ <input type="range" id="sEye" min="0.5" max="1.5" step="0.05" value="1" /></label>
+      <label>なめらかさ <input type="range" id="sSmooth" min="0" max="0.9" step="0.05" value="0.5" /></label>
+    </section>
+
+    <section>
+      <h2>パーツ調整</h2>
+      <button id="editBtn">パーツ調整モード (E)</button>
+      <div id="editPanel" hidden>
+        <p class="hint">楕円の中心をドラッグで移動、右下の点で大きさを変更します。</p>
+        <label>重ねて確認する画像
+          <select id="onionSelect"></select>
+        </label>
+        <label>透明度 <input type="range" id="onionAlpha" min="0" max="1" step="0.05" value="0.5" /></label>
+        <div class="row">
+          <span class="hint">画像の位置ずれ補正:</span>
+          <button data-nudge="-1,0">←</button><button data-nudge="1,0">→</button>
+          <button data-nudge="0,-1">↑</button><button data-nudge="0,1">↓</button>
+          <span id="alignInfo" class="hint"></span>
+        </div>
+        <label>ふちのぼかし <input type="range" id="feather" min="1" max="40" step="1" value="12" /></label>
+        <div class="row">
+          <button id="saveBtn" class="primary">保存</button>
+          <button id="downloadBtn">avatar.json をダウンロード</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="keys">
+      <h2>キー操作</h2>
+      <p><kbd>1</kbd>〜<kbd>4</kbd> 表情 / <kbd>0</kbd> 通常 / <kbd>C</kbd> 正面を基準にする / <kbd>B</kbd> 背景切替 / <kbd>D</kbd> デバッグ表示 / <kbd>H</kbd> パネル表示切替 / <kbd>E</kbd> パーツ調整</p>
+    </section>
+  </aside>
+
+  <div id="debugView" hidden>
+    <video id="video" playsinline muted></video>
+    <canvas id="debugCanvas"></canvas>
+    <pre id="debugText"></pre>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
