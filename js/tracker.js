@@ -225,7 +225,8 @@ export class FaceTracker {
       // 口の開き: 閉じている時の値を差し引いてから大きめに増幅（はっきり動かすため）
       mouthOpen: clamp01(Math.max((m.jawOpen - (c.jawOpen ?? 0)) * 1.8, (m.mouthOpen - (c.mouthOpen ?? 0) - 0.005) * 7)),
       funnel: m.funnel,
-      wide: clamp01(Math.max(m.smile, m.stretch) * 1.3 + (m.mouthWidth - c.mouthWidth) * 4),
+      wide: clamp01(m.stretch * 1.3 + (m.mouthWidth - c.mouthWidth) * 5),
+      smile: clamp01((m.smile - (c.smile ?? 0) * 0.5) * 1.4),
       browUp: m.browUp,
       gazeX: m.gazeX - (c.gazeX ?? 0),
       gazeY: m.gazeY - (c.gazeY ?? 0),

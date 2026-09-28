@@ -155,6 +155,14 @@ export class WarpRenderer {
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
   }
 
+  // 一部だけ書き換える（毎フレーム変わる口の部分だけ送る）
+  uploadSubTexture(source, x, y) {
+    const { gl } = this;
+    gl.bindTexture(gl.TEXTURE_2D, this.tex);
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, x, y, gl.RGBA, gl.UNSIGNED_BYTE, source);
+  }
+
   // p: { yaw, pitch, roll, hairYaw, hairPitch, hairRoll, breath }（yaw/pitch は -1〜1 程度、roll はラジアン）
   // cfg: avatar.json（regions.head, neckY, motion）
   //
@@ -184,9 +192,13 @@ export class WarpRenderer {
     const breath = p.breath ?? 0;
     const headRollShare = 1 - leanRollShare;
 
-    // 頭だけの動きの効き具合: 頭の楕円の中は 1、首〜胸の上でなだらかに 0 へ
-    const fadeTop = neckY - head.ry * 0.15;
-    const fadeBottom = neckY + head.ry * 0.6;
+    // 頭だけの動きの効き具合:
+    //  - 頭の楕円の中は 1
+    //  - あごより下は「首の幅」の中だけ、肩の付け根（neckY）までになだらかに 0 へ
+    //  - 首の外側（肩）はあごの高さで 0 → 肩は変形せず、体の傾きで一緒に動くだけ
+    const neck = cfg.neck ?? { cx: head.cx, halfWidth: head.rx * 0.22, chinY: neckY - head.ry * 0.17 };
+    const chinY = neck.chinY;
+    const sideFadeTop = chinY - head.ry * 0.15;
 
     const { rest, pos } = this;
     for (let k = 0; k < rest.length; k += 2) {
@@ -195,8 +207,11 @@ export class WarpRenderer {
       const nx = (x - head.cx) / head.rx;
       const ny = (y - head.cy) / head.ry;
       const d = Math.sqrt(nx * nx + ny * ny);
-      let w = 1 - smoothstep(0.95, 1.7, d);
-      w *= 1 - smoothstep(fadeTop, fadeBottom, y);
+      const radial = 1 - smoothstep(0.95, 1.3, d);
+      const inNeck = 1 - smoothstep(neck.halfWidth, neck.halfWidth + 30, Math.abs(x - neck.cx));
+      const vNeck = 1 - smoothstep(chinY, neckY, y);
+      const vSide = 1 - smoothstep(sideFadeTop, chinY + 10, y);
+      const w = radial * Math.max(vSide, vNeck * inNeck);
 
       let ox = x;
       let oy = y;

@@ -7,17 +7,16 @@
     "base": "parts/base.png",
     "eyes_half": "parts/eyes_half.png",
     "eyes_closed": "parts/eyes_closed.png",
-    "mouth_a": "parts/mouth_a.png",
-    "mouth_i": "parts/mouth_i.png",
-    "mouth_u": "parts/mouth_u.png",
-    "mouth_e": "parts/mouth_e.png",
-    "mouth_o": "parts/mouth_o.png",
     "exp_smile": "parts/exp_smile.png",
     "exp_shy": "parts/exp_shy.png",
     "exp_surprised": "parts/exp_surprised.png",
     "eye_socket": "parts/eye_socket.png",
     "iris": "parts/iris.png",
-    "eye_mask": "parts/eye_mask.png"
+    "eye_mask": "parts/eye_mask.png",
+    "nomouth_base": "parts/nomouth_base.png",
+    "nomouth_exp_smile": "parts/nomouth_exp_smile.png",
+    "nomouth_exp_shy": "parts/nomouth_exp_shy.png",
+    "nomouth_exp_surprised": "parts/nomouth_exp_surprised.png"
   },
   "regions": {
     "eyeL": {
@@ -33,10 +32,10 @@
       "ry": 46
     },
     "mouth": {
-      "cx": 509,
-      "cy": 492,
-      "rx": 56,
-      "ry": 38
+      "cx": 508,
+      "cy": 493,
+      "rx": 64,
+      "ry": 48
     },
     "face": {
       "cx": 505,
@@ -51,7 +50,7 @@
       "ry": 300
     }
   },
-  "neckY": 600,
+  "neckY": 598,
   "feather": 14,
   "align": {},
   "motion": {
@@ -73,27 +72,39 @@
       "key": "1",
       "name": "通常",
       "image": null,
-      "eyeTracking": true
+      "eyeTracking": true,
+      "mouthBias": {
+        "smile": 0.25
+      }
     },
     {
       "key": "2",
       "name": "笑顔",
       "image": "exp_smile",
       "eyeTracking": false,
-      "ownMouth": true
+      "mouthBias": {
+        "smile": 1.0,
+        "minOpen": 0.45
+      }
     },
     {
       "key": "3",
       "name": "照れ",
       "image": "exp_shy",
-      "eyeTracking": true
+      "eyeTracking": true,
+      "mouthBias": {
+        "smile": 0.15
+      }
     },
     {
       "key": "4",
       "name": "驚き",
       "image": "exp_surprised",
       "eyeTracking": true,
-      "ownMouth": true
+      "mouthBias": {
+        "round": 1.0,
+        "minOpen": 0.5
+      }
     }
   ],
   "cleanup": {
@@ -125,10 +136,6 @@
         "ry": 20
       }
     ],
-    "reuse": {
-      "mouth_a": "exp_smile",
-      "mouth_o": "exp_surprised"
-    },
     "hairGrow": 3,
     "edgeBlur": 1.5,
     "mouthCores": [
@@ -152,6 +159,25 @@
         "rx": 24,
         "ry": 23
       }
-    ]
+    ],
+    "mouthErase": {
+      "cx": 508,
+      "cy": 491,
+      "rx": 42,
+      "ry": 29
+    }
+  },
+  "mouth": {
+    "cx": 508,
+    "cy": 487,
+    "closedHalfWidth": 17,
+    "openHalfWidth": 25,
+    "maxHeight": 38,
+    "scale": 1.0
+  },
+  "neck": {
+    "cx": 515,
+    "halfWidth": 62,
+    "chinY": 548
   }
 }

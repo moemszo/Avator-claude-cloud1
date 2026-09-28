@@ -79,15 +79,13 @@ const state = {
   expression: 0,
   eyeL: 'open',
   eyeR: 'open',
-  mouth: 'closed',
-  prevMouth: 'closed',
-  mouthFade: 1,
 };
+// 口の形（連続値）。js/mouth.js で描く
+const mouth = { open: 0, wide: 0, round: 0, smile: 0 };
+let lastMouthKey = '';
 const motion = { yaw: 0, pitch: 0, roll: 0 };
 const gaze = { x: 0, y: 0 };
 const hair = { yaw: 0, pitch: 0, roll: 0, vy: 0, vp: 0, vr: 0 };
-let mouthCandidate = 'closed';
-let mouthCandidateSince = 0;
 let nextIdleBlink = performance.now() + 3000;
 let idleBlinkUntil = 0;
 let override = null; // テスト用 (window.__avatar.setFeatures)
@@ -195,18 +193,6 @@ function eyeStateFrom(open, prev) {
   return open < th.toClosed ? 'closed' : open < th.toHalf ? 'half' : 'open';
 }
 
-// 口の形: 開き具合と、すぼめ・横に引く度合いから決める
-// 使える口の画像が少ないので「閉じ / 小さく開く(え) / 大きく開く(あ) / すぼめ(お)」を
-// はっきり切り替えることを優先する
-function vowelFrom(f) {
-  const open = f.mouthOpen;
-  if (open < 0.1) return 'closed';
-  if (f.funnel > 0.3) return open > 0.3 ? 'o' : 'u';
-  if (open > 0.38) return 'a';
-  if (f.wide > 0.5) return 'i';
-  return 'e';
-}
-
 function update(now, dt) {
   tracker.update();
   const mirror = els.mirror.checked;
@@ -223,7 +209,7 @@ function update(now, dt) {
   let gazeTarget = { x: gaze.x, y: gaze.y };
   let eyeL = 'open';
   let eyeR = 'open';
-  let mouth = 'closed';
+  let mouthTarget = { open: 0, wide: 0, round: 0, smile: 0 };
 
   if (f) {
     const sign = mirror ? -1 : 1;
@@ -239,7 +225,13 @@ function update(now, dt) {
     if (Math.abs(oL - oR) < 0.25) oL = oR = (oL + oR) / 2; // 両目はそろえてチラつきを抑える
     eyeL = eyeStateFrom(oL, state.eyeL);
     eyeR = eyeStateFrom(oR, state.eyeR);
-    mouth = vowelFrom({ ...f, mouthOpen: clamp(f.mouthOpen * sMouth, 0, 1) });
+    const open = clamp(f.mouthOpen * sMouth, 0, 1);
+    mouthTarget = {
+      open: open < 0.05 ? 0 : (open - 0.05) / 0.95, // ごく小さな開きは閉じとみなす
+      wide: f.wide ?? 0,
+      round: clamp((f.funnel ?? 0) * 1.4, 0, 1),
+      smile: f.smile ?? 0,
+    };
     // 目線: まばたき中は黒目の位置が乱れるので動かさない
     if (Math.min(oL, oR) > 0.5) {
       const dz = (v) => (Math.abs(v) < 0.08 ? 0 : v - Math.sign(v) * 0.08); // 小さなブレは無視
@@ -289,18 +281,12 @@ function update(now, dt) {
     hair[k] += hair[v];
   }
 
-  // 口: 小さなブレでパクパクしないよう、同じ形が少し続いたら切り替える
-  if (mouth !== mouthCandidate) {
-    mouthCandidate = mouth;
-    mouthCandidateSince = now;
+  // 口: 話す速さについていけるよう速めに追従（開く時はさらに速く）
+  for (const k of ['open', 'wide', 'round', 'smile']) {
+    const t = mouthTarget[k];
+    const speed = k === 'open' && t > mouth[k] ? 0.6 : 0.4;
+    mouth[k] = lerp(mouth[k], t, 1 - Math.pow(1 - speed, dt / 16.7));
   }
-  const hold = mouth === 'closed' ? 45 : 25;
-  if (mouthCandidate !== state.mouth && now - mouthCandidateSince >= hold) {
-    state.prevMouth = state.mouth;
-    state.mouth = mouthCandidate;
-    state.mouthFade = 0;
-  }
-  state.mouthFade = Math.min(1, state.mouthFade + dt / 45);
   state.eyeL = eyeL;
   state.eyeR = eyeR;
 
@@ -331,10 +317,19 @@ function drawDebug(f) {
     `向き  左右${fmt(motion.yaw)} 上下${fmt(motion.pitch)} 傾き${fmt(motion.roll)}`,
     `目線  左右${fmt(gaze.x)} 上下${fmt(gaze.y)}`,
     f ? `目  左 ${state.eyeL} / 右 ${state.eyeR}` : '',
-    f ? `口  ${state.mouth}  (開き ${f.mouthOpen.toFixed(2)} すぼめ ${f.funnel.toFixed(2)} 横 ${f.wide.toFixed(2)})` : '',
+    `口  開き${fmt(mouth.open)} 横${fmt(mouth.wide)} すぼめ${fmt(mouth.round)} 笑み${fmt(mouth.smile)}`,
   ]
     .filter(Boolean)
     .join('\n');
+}
+
+// 口の部分だけを描き直してテクスチャに送る（形が変わった時だけ）
+function uploadMouth(p, force) {
+  const key = [p.open, p.wide, p.round, p.smile].map((v) => v.toFixed(3)).join(',');
+  if (!force && key === lastMouthKey) return;
+  lastMouthKey = key;
+  const m = avatar.drawMouth(p);
+  renderer.uploadSubTexture(m.canvas, m.x, m.y);
 }
 
 // ---- メインループ ----
@@ -346,13 +341,19 @@ function loop(now) {
 
   if (editor.active) {
     // 調整モードでは動きを止めて正面のまま表示
-    const changed = avatar.compose(editor.previewState(state));
-    if (changed || editor.dirtyTexture) renderer.uploadTexture(avatar.comp);
+    const preview = editor.previewState(state);
+    const changed = avatar.compose(preview);
+    if (changed || editor.dirtyTexture) {
+      renderer.uploadTexture(avatar.comp);
+      uploadMouth(avatar.mouthParams(preview.expression, { open: 0, wide: 0, round: 0, smile: 0 }), true);
+    }
     editor.dirtyTexture = false;
     renderer.gaze = { x: 0, y: 0, ...avatar.gazeEyes(editor.previewState(state)) };
     renderer.deform({ yaw: 0, pitch: 0, roll: 0, hairYaw: 0, hairPitch: 0, hairRoll: 0, breath: 0 }, avatar.config);
   } else {
-    if (avatar.compose(state)) renderer.uploadTexture(avatar.comp);
+    const changed = avatar.compose(state);
+    if (changed) renderer.uploadTexture(avatar.comp);
+    uploadMouth(avatar.mouthParams(state.expression, mouth), changed);
     const mm = avatar.config.motion ?? {};
     renderer.gaze = {
       x: gaze.x * (mm.gazePxX ?? 8),
@@ -416,6 +417,7 @@ window.addEventListener('keydown', (e) => {
 window.__avatar = {
   state,
   motion,
+  mouth,
   gaze,
   setExpression,
   setFeatures: (f) => (override = f),

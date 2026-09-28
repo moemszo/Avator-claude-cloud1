@@ -4,7 +4,7 @@
 const REGION_STYLE = {
   eyeL: { color: '#2e86de', label: '目（画面左）' },
   eyeR: { color: '#2e86de', label: '目（画面右）' },
-  mouth: { color: '#e74c3c', label: '口' },
+  mouth: { color: '#e74c3c', label: '口を描き直す範囲' },
   face: { color: '#8e44ad', label: '表情の範囲' },
   head: { color: '#27ae60', label: '頭（動く範囲）' },
 };
@@ -80,10 +80,9 @@ export class Editor {
   // 選んだ差分画像が実際にどう合成されるかを見せる
   previewState(state) {
     const key = this.onion.value;
-    const s = { expression: 0, eyeL: 'open', eyeR: 'open', mouth: 'closed', prevMouth: 'closed', mouthFade: 1 };
+    const s = { expression: 0, eyeL: 'open', eyeR: 'open' };
     if (key === 'eyes_closed') s.eyeL = s.eyeR = 'closed';
     else if (key === 'eyes_half') s.eyeL = s.eyeR = 'half';
-    else if (key.startsWith('mouth_')) s.mouth = s.prevMouth = key.slice(6);
     else if (key.startsWith('exp_')) {
       const i = (this.config.expressions ?? []).findIndex((x) => x.image === key);
       if (i >= 0) s.expression = i;
@@ -133,8 +132,10 @@ export class Editor {
   pointerDown(e) {
     const p = this.toImage(e);
     const hit = 14 * p.scale;
-    // 小さい範囲から優先して当たり判定
-    const order = ['eyeL', 'eyeR', 'mouth', 'face', 'head'];
+    // 口の位置の点 → 小さい範囲 → 大きい範囲の順に当たり判定
+    const mp = this.config.mouth;
+    if (mp && Math.hypot(p.x - mp.cx, p.y - mp.cy) < hit * 0.6) this.drag = { name: 'mouthPos', mode: 'mouthPos' };
+    const order = this.drag ? [] : ['eyeL', 'eyeR', 'mouth', 'face', 'head'];
     for (const name of order) {
       const r = this.config.regions[name];
       if (!r) continue;
@@ -157,6 +158,9 @@ export class Editor {
     const round = Math.round;
     if (this.drag.mode === 'neck') {
       this.config.neckY = round(p.y);
+    } else if (this.drag.mode === 'mouthPos') {
+      this.config.mouth.cx = round(p.x);
+      this.config.mouth.cy = round(p.y);
     } else {
       const r = this.config.regions[this.drag.name];
       if (this.drag.mode === 'move') {
@@ -204,6 +208,19 @@ export class Editor {
       ctx.fill();
       ctx.fillRect(r.cx + r.rx - lw * 3, r.cy + r.ry - lw * 3, lw * 6, lw * 6);
       ctx.fillText(st.label, r.cx - r.rx, r.cy - r.ry - lw * 2);
+    }
+    const mp = this.config.mouth;
+    if (mp) {
+      ctx.strokeStyle = '#e74c3c';
+      ctx.lineWidth = lw;
+      ctx.beginPath();
+      ctx.moveTo(mp.cx - lw * 5, mp.cy);
+      ctx.lineTo(mp.cx + lw * 5, mp.cy);
+      ctx.moveTo(mp.cx, mp.cy - lw * 5);
+      ctx.lineTo(mp.cx, mp.cy + lw * 5);
+      ctx.stroke();
+      ctx.fillStyle = '#e74c3c';
+      ctx.fillText('口の位置', mp.cx + lw * 6, mp.cy + lw * 10);
     }
     ctx.strokeStyle = '#f39c12';
     ctx.fillStyle = '#f39c12';

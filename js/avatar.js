@@ -1,8 +1,10 @@
-// アバターの合成: 基本画像（base）の上に、目・口・表情の差分画像を
+// アバターの合成: 基本画像（base）の上に、目・表情の差分画像を
 // 楕円の範囲（ふちをぼかしたマスク）だけ切り抜いて重ねる。
+// 口は画像を切り替えず、口を消した顔（nomouth_*）の上に毎フレーム描く（js/mouth.js）。
+
+import { drawAnimeMouth } from './mouth.js';
 
 export const EYE_STATES = ['open', 'half', 'closed'];
-export const MOUTH_STATES = ['closed', 'a', 'i', 'u', 'e', 'o'];
 
 function loadImage(src) {
   return new Promise((resolve) => {
@@ -137,19 +139,45 @@ export class Avatar {
     return this.images.eyes_closed ? 'eyes_closed' : this.images.eyes_half ? 'eyes_half' : null;
   }
 
-  // 口の状態に対応する画像。closed は基本画像の口（表情に ownMouth: true があればその表情の口）
-  mouthImage(state, expImage, ownMouth) {
-    if (state === 'closed') return ownMouth && expImage ? expImage : 'base';
-    const want = 'mouth_' + state;
-    if (this.images[want]) return want;
-    const alt = { i: ['mouth_e'], e: ['mouth_i'], u: ['mouth_o'], o: ['mouth_u', 'mouth_a'] }[state] ?? [];
-    for (const key of [...alt, 'mouth_a', 'mouth_e', 'mouth_i', 'mouth_o', 'mouth_u']) {
-      if (this.images[key]) return key;
-    }
-    return null;
+  // 口を描く範囲（口の楕円を囲む四角）
+  mouthRect() {
+    const r = this.config.regions.mouth;
+    const x = Math.max(0, Math.floor(r.cx - r.rx));
+    const y = Math.max(0, Math.floor(r.cy - r.ry));
+    return {
+      x,
+      y,
+      w: Math.min(this.width, Math.ceil(r.cx + r.rx)) - x,
+      h: Math.min(this.height, Math.ceil(r.cy + r.ry)) - y,
+    };
   }
 
-  // state: { expression, eyeL, eyeR, mouth, prevMouth, mouthFade }
+  // 口の形 p（open / wide / round / smile）を、合成済みの顔の上に描いた小さな画像を返す
+  drawMouth(p) {
+    const rect = this.mouthRect();
+    if (!this.mouthCanvas || this.mouthCanvas.width !== rect.w || this.mouthCanvas.height !== rect.h) {
+      this.mouthCanvas = makeCanvas(rect.w, rect.h);
+    }
+    const ctx = this.mouthCanvas.getContext('2d');
+    ctx.clearRect(0, 0, rect.w, rect.h);
+    ctx.drawImage(this.comp, rect.x, rect.y, rect.w, rect.h, 0, 0, rect.w, rect.h);
+    const m = this.config.mouth ?? {};
+    drawAnimeMouth(ctx, (m.cx ?? 508) - rect.x, (m.cy ?? 487) - rect.y, p, m);
+    return { canvas: this.mouthCanvas, x: rect.x, y: rect.y };
+  }
+
+  // 表情ごとの口の味付け（笑顔は口角を上げる、驚きはすぼめる など）
+  mouthParams(expressionIndex, raw) {
+    const b = this.expression(expressionIndex).mouthBias ?? {};
+    return {
+      open: Math.max(raw.open, b.minOpen ?? 0),
+      wide: Math.min(1, raw.wide + (b.wide ?? 0)),
+      round: Math.min(1, Math.max(raw.round, b.round ?? 0)),
+      smile: Math.min(1, Math.max(raw.smile, b.smile ?? 0)),
+    };
+  }
+
+  // state: { expression, eyeL, eyeR }
   // eyeL / eyeR は画面上の左 / 右の目
   compose(state) {
     const key = JSON.stringify(state);
@@ -176,10 +204,9 @@ export class Avatar {
     }
 
     const own = !!exp.ownMouth;
-    const cur = this.mouthImage(state.mouth, expImage, own);
-    const prev = this.mouthImage(state.prevMouth ?? state.mouth, expImage, own);
-    if (state.mouthFade < 1 && prev && prev !== cur) this._draw(ctx, prev, 'mouth', 1);
-    if (cur) this._draw(ctx, cur, 'mouth', prev && prev !== cur ? state.mouthFade : 1);
+    // 元の口を消す（この上に drawMouth で口を描く）
+    const faceImage = expImage ?? 'base';
+    if (this.images['nomouth_' + faceImage]) this._draw(ctx, 'nomouth_' + faceImage, 'mouth');
     return true;
   }
 }

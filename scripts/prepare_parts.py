@@ -204,6 +204,31 @@ def make_gaze_parts(base, cl):
     save(mask, OUT / "eye_mask.png")
 
 
+def make_nomouth_parts(cfg, cl):
+    """口を消した顔（nomouth_<画像名>.png）を作る。アプリがこの上にアニメ調の口を描く"""
+    er = cl.get("mouthErase")
+    if not er:
+        print("口なしパーツ: cleanup.mouthErase が無いのでスキップ")
+        return
+    faces = ["base"] + [e["image"] for e in cfg.get("expressions", []) if e.get("image")]
+    for name in faces:
+        path = OUT / f"{name}.png"
+        if not path.exists():
+            continue
+        a = load_rgba(path)
+        H, W = a.shape[:2]
+        hole = ellipse_mask((H, W), er)
+        ring = ellipse_mask((H, W), er, 1.35) & ~hole
+        filled = fill_from_surroundings(a[..., :3], hole, ring, iterations=80)
+        smooth = np.stack([np.asarray(Image.fromarray((filled[..., c] * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(3))) / 255.0 for c in range(3)], -1)
+        filled = np.where(hole[..., None], smooth, filled)
+        w = soften(hole, 0, 2.0)[..., None]
+        out = a.copy()
+        out[..., :3] = filled * w + a[..., :3] * (1 - w)
+        save(out, OUT / f"nomouth_{name}.png")
+        print(f"口なしパーツ: nomouth_{name}.png")
+
+
 def save(a, path):
     Image.fromarray((np.clip(a, 0, 1) * 255 + 0.5).astype(np.uint8), "RGBA").save(path, optimize=True)
 
@@ -263,6 +288,7 @@ def main():
         print(f"{part}: 元画像 {src}、位置補正 ({-dx:+d}, {-dy:+d}) px、髪を base に統一")
 
     make_gaze_parts(base, cl)
+    make_nomouth_parts(cfg, cl)
 
     # 位置は画像側で合わせたので、アプリ側の補正は 0 に戻す
     cfg["align"] = {}
